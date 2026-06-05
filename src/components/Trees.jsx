@@ -80,7 +80,11 @@ export default function Trees() {
       // SE quadrant
       [6, 0, -6], [9, 0, -8], [7, 0, -10],
     ]
-    plazaPositions.forEach(p => list.push({ pos: p, seed: seed++ }))
+    // Exclude trees too close to the fountain at (12, 0, 12)
+    const nearFountain = ([x, , z]) => Math.hypot(x - 12, z - 12) < 5.5
+    plazaPositions
+      .filter(p => !nearFountain(p))
+      .forEach(p => list.push({ pos: p, seed: seed++ }))
 
     return list
   }, [])

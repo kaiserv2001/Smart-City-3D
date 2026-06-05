@@ -12,6 +12,9 @@ import Trees from './components/Trees'
 import TrafficLights from './components/TrafficLights'
 import Pedestrians from './components/Pedestrians'
 import Billboards from './components/Billboards'
+import MovingClouds from './components/MovingClouds'
+import Helicopter from './components/Helicopter'
+import Fountain from './components/Fountain'
 import LoadingScreen from './components/LoadingScreen'
 
 function ToggleButton({ isDaytime, onToggle }) {
@@ -177,6 +180,9 @@ export default function App() {
           <TrafficLights />
           <Pedestrians />
           <Billboards />
+          <Fountain />
+          <Helicopter />
+          {isDaytime && <MovingClouds />}
 
           {/* Ground */}
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]} receiveShadow>
