@@ -12,6 +12,8 @@ import Trees from './components/Trees'
 import TrafficLights from './components/TrafficLights'
 import Pedestrians from './components/Pedestrians'
 import Billboards from './components/Billboards'
+import Crosswalks from './components/Crosswalks'
+import EmergencyVehicles from './components/EmergencyVehicles'
 import MovingClouds from './components/MovingClouds'
 import Helicopter from './components/Helicopter'
 import Fountain from './components/Fountain'
@@ -179,6 +181,8 @@ export default function App() {
           <Trees />
           <TrafficLights />
           <Pedestrians />
+          <Crosswalks />
+          <EmergencyVehicles />
           <Billboards />
           <Fountain />
           <Helicopter />

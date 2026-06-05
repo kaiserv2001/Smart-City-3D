@@ -20,13 +20,7 @@ function Road({ x, z, length, axis, isDaytime }) {
       {/* Centre line */}
       <mesh position={[x, 0.02, z]} rotation={rot}>
         <planeGeometry args={[length, 0.1]} />
-        <meshStandardMaterial
-          color={isDaytime ? '#e8e0c8' : '#00ffff'}
-          emissive={isDaytime ? '#000000' : '#00ffff'}
-          emissiveIntensity={isDaytime ? 0 : 2}
-          roughness={0.9}
-          transparent opacity={isDaytime ? 1 : 0.6}
-        />
+        <meshStandardMaterial color="#e8e0c8" roughness={0.9} />
       </mesh>
 
       {/* Edge lines */}
@@ -39,13 +33,7 @@ function Road({ x, z, length, axis, isDaytime }) {
           rotation={rot}
         >
           <planeGeometry args={[length, 0.14]} />
-          <meshStandardMaterial
-            color={isDaytime ? '#d0c8b0' : '#0055ff'}
-            emissive={isDaytime ? '#000000' : '#0055ff'}
-            emissiveIntensity={isDaytime ? 0 : 1.5}
-            roughness={0.9}
-            transparent opacity={isDaytime ? 1 : 0.5}
-          />
+          <meshStandardMaterial color="#d0c8b0" roughness={0.9} />
         </mesh>
       ))}
     </group>

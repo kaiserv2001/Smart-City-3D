@@ -1,17 +1,18 @@
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 
-const RADIUS   = 52
-const ALTITUDE = 62
-const SPEED    = 0.09  // rad/s  ≈ 70-second orbit
+// Heli 1 — outer orbit, clockwise, dark blue-grey
+const H1 = { radius: 52, altitude: 62, speed: 0.09,  color: '#2a3a4a', phase: 0 }
+// Heli 2 — inner orbit, counter-clockwise, olive-green livery
+const H2 = { radius: 34, altitude: 52, speed: -0.13, color: '#3a4430', phase: Math.PI }
 
-function Body() {
+function Body({ color }) {
   return (
     <group>
       {/* Main fuselage */}
       <mesh>
         <boxGeometry args={[4.4, 1.0, 1.3]} />
-        <meshStandardMaterial color="#2a3a4a" metalness={0.6} roughness={0.4} />
+        <meshStandardMaterial color={color} metalness={0.6} roughness={0.4} />
       </mesh>
       {/* Cockpit */}
       <mesh position={[1.9, 0.08, 0]}>
@@ -26,12 +27,12 @@ function Body() {
       {/* Tail boom */}
       <mesh position={[-3.3, 0.12, 0]}>
         <boxGeometry args={[2.4, 0.38, 0.38]} />
-        <meshStandardMaterial color="#2a3a4a" metalness={0.6} roughness={0.4} />
+        <meshStandardMaterial color={color} metalness={0.6} roughness={0.4} />
       </mesh>
       {/* Tail fin */}
       <mesh position={[-4.4, 0.55, 0]}>
         <boxGeometry args={[0.3, 1.0, 0.1]} />
-        <meshStandardMaterial color="#223344" metalness={0.5} roughness={0.4} />
+        <meshStandardMaterial color={color} metalness={0.5} roughness={0.4} />
       </mesh>
       {/* Landing skids */}
       {[-0.68, 0.68].map((sz, i) => (
@@ -61,38 +62,37 @@ function Body() {
   )
 }
 
-export default function Helicopter() {
-  const groupRef     = useRef()
-  const mainRotor    = useRef()
-  const tailRotor    = useRef()
-  const strobeRef    = useRef()
+function HeliInstance({ cfg, strobeOffset = 0 }) {
+  const groupRef  = useRef()
+  const mainRotor = useRef()
+  const tailRotor = useRef()
+  const strobeRef = useRef()
 
   useFrame((state, delta) => {
     const t     = state.clock.elapsedTime
-    const angle = t * SPEED
+    const angle = t * cfg.speed + cfg.phase
 
-    // Circular orbit
     groupRef.current.position.set(
-      Math.cos(angle) * RADIUS,
-      ALTITUDE + Math.sin(t * 0.25) * 3.5,
-      Math.sin(angle) * RADIUS,
+      Math.cos(angle) * cfg.radius,
+      cfg.altitude + Math.sin(t * 0.25 + cfg.phase) * 3,
+      Math.sin(angle) * cfg.radius,
     )
-    // Nose follows tangent of circle
-    groupRef.current.rotation.y = -angle - Math.PI / 2
+    // Nose follows tangent — negate speed sign so it always faces forward
+    const tangentAngle = angle + (cfg.speed < 0 ? Math.PI / 2 : -Math.PI / 2)
+    groupRef.current.rotation.y = tangentAngle
 
-    // Rotor spin
     if (mainRotor.current) mainRotor.current.rotation.y += delta * 18
     if (tailRotor.current) tailRotor.current.rotation.x += delta * 24
 
-    // White belly strobe — blinks twice per second
     if (strobeRef.current) {
-      strobeRef.current.material.emissiveIntensity = Math.floor(t * 2) % 2 === 0 ? 9 : 0
+      strobeRef.current.material.emissiveIntensity =
+        Math.floor((t + strobeOffset) * 2) % 2 === 0 ? 9 : 0
     }
   })
 
   return (
     <group ref={groupRef}>
-      <Body />
+      <Body color={cfg.color} />
 
       {/* Rotor mast */}
       <mesh position={[0, 0.65, 0]}>
@@ -125,6 +125,15 @@ export default function Helicopter() {
         <sphereGeometry args={[0.12, 5, 4]} />
         <meshStandardMaterial color="#ffffff" emissive="#ffffff" emissiveIntensity={0} />
       </mesh>
+    </group>
+  )
+}
+
+export default function Helicopter() {
+  return (
+    <group>
+      <HeliInstance cfg={H1} strobeOffset={0} />
+      <HeliInstance cfg={H2} strobeOffset={0.5} />
     </group>
   )
 }

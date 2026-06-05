@@ -23,7 +23,8 @@ export function generateBuildings() {
       const baseW  = 3 + r  * 6
       const baseD  = 3 + r2 * 6
       const totalH = 5 + r3 * 42
-      const typeIdx    = r4 < 0.35 ? 0 : r4 < 0.7 ? 1 : 2
+      // 0=glass 1=concrete 2=corporate 3=brick 4=residential
+      const typeIdx    = r4 < 0.26 ? 0 : r4 < 0.44 ? 1 : r4 < 0.66 ? 2 : r4 < 0.83 ? 3 : 4
       const variantIdx = Math.floor(r5 * 5)
 
       const stepped = totalH > 18
