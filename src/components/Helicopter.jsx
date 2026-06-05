@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
+import { useScene } from '../SceneContext'
 
 // Heli 1 — outer orbit, clockwise, dark blue-grey
 const H1 = { radius: 52, altitude: 62, speed: 0.09,  color: '#2a3a4a', phase: 0 }
@@ -62,7 +63,7 @@ function Body({ color }) {
   )
 }
 
-function HeliInstance({ cfg, strobeOffset = 0 }) {
+function HeliInstance({ cfg, strobeOffset = 0, onSelect }) {
   const groupRef  = useRef()
   const mainRotor = useRef()
   const tailRotor = useRef()
@@ -91,7 +92,11 @@ function HeliInstance({ cfg, strobeOffset = 0 }) {
   })
 
   return (
-    <group ref={groupRef}>
+    <group ref={groupRef}
+      onClick={(e) => { e.stopPropagation(); onSelect?.() }}
+      onPointerEnter={() => { document.body.style.cursor = 'pointer' }}
+      onPointerLeave={() => { document.body.style.cursor = 'auto' }}
+    >
       <Body color={cfg.color} />
 
       {/* Rotor mast */}
@@ -130,10 +135,13 @@ function HeliInstance({ cfg, strobeOffset = 0 }) {
 }
 
 export default function Helicopter() {
+  const { setSelected } = useScene()
   return (
     <group>
-      <HeliInstance cfg={H1} strobeOffset={0} />
-      <HeliInstance cfg={H2} strobeOffset={0.5} />
+      <HeliInstance cfg={H1} strobeOffset={0}
+        onSelect={() => setSelected({ type: 'helicopter', data: H1 })} />
+      <HeliInstance cfg={H2} strobeOffset={0.5}
+        onSelect={() => setSelected({ type: 'helicopter', data: H2 })} />
     </group>
   )
 }

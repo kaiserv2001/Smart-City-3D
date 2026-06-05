@@ -218,13 +218,19 @@ function InstancedTier({ instances, dayMap, nightMap, typeIdx, isDaytime }) {
   useEffect(() => {
     if (!ref.current || instances.length === 0) return
     const dummy = new THREE.Object3D()
+    const tint  = new THREE.Color()
     instances.forEach((inst, i) => {
       dummy.position.set(inst.x, inst.y, inst.z)
       dummy.scale.set(inst.w, inst.h, inst.d)
       dummy.updateMatrix()
       ref.current.setMatrixAt(i, dummy.matrix)
+      // Subtle per-instance brightness variation to break up identical-looking clones
+      const v = 0.84 + seededRand(inst.x * 7.3 + inst.z * 13.1) * 0.16
+      tint.setRGB(v, v, v)
+      ref.current.setColorAt(i, tint)
     })
     ref.current.instanceMatrix.needsUpdate = true
+    if (ref.current.instanceColor) ref.current.instanceColor.needsUpdate = true
   }, [instances])
 
   if (instances.length === 0) return null
@@ -246,6 +252,177 @@ function InstancedTier({ instances, dayMap, nightMap, typeIdx, isDaytime }) {
         roughness={roughness}
       />
     </instancedMesh>
+  )
+}
+
+// ── Rooftop features ─────────────────────────────────────────────────────────
+
+const PARAPET_COLORS = ['#7a8898', '#838383', '#8a8070', '#8a5040', '#687090']
+
+function buildRooftopData(buildings) {
+  const elevShafts = [], hvacUnits = [], waterTanks = [], waterLegs = [], waterCaps = []
+  const crownLo = [], crownHi = [], parapets = []
+
+  buildings.forEach((bld, bi) => {
+    const sr   = s => seededRand(bi * 100 + s)
+    const topW = bld.stepped ? (bld.t3H > 0 ? bld.t3W : bld.t2W) : bld.baseW
+    const topD = bld.stepped ? (bld.t3H > 0 ? bld.t3D : bld.t2D) : bld.baseD
+    const roofY = bld.totalH
+
+    // Parapet — low wall around every rooftop > 6m
+    if (bld.totalH > 6) {
+      const pH = 0.52, pT = 0.27
+      parapets.push(
+        { x: bld.x,           y: roofY + pH*0.5, z: bld.z - topD*0.5, w: topW + pT*2, h: pH, d: pT, typeIdx: bld.typeIdx },
+        { x: bld.x,           y: roofY + pH*0.5, z: bld.z + topD*0.5, w: topW + pT*2, h: pH, d: pT, typeIdx: bld.typeIdx },
+        { x: bld.x - topW*0.5, y: roofY + pH*0.5, z: bld.z,           w: pT, h: pH, d: topD,         typeIdx: bld.typeIdx },
+        { x: bld.x + topW*0.5, y: roofY + pH*0.5, z: bld.z,           w: pT, h: pH, d: topD,         typeIdx: bld.typeIdx },
+      )
+    }
+
+    // Elevator shaft housing — buildings > 13m
+    if (bld.totalH > 13) {
+      const ox = (sr(1) - 0.5) * topW * 0.38
+      const oz = (sr(2) - 0.5) * topD * 0.38
+      elevShafts.push({ x: bld.x + ox, y: roofY + 1.6, z: bld.z + oz })
+    }
+
+    // HVAC / mechanical units — buildings > 8m, 1–3 units scattered on roof
+    if (bld.totalH > 8) {
+      const count = 1 + Math.floor(sr(3) * 3)
+      for (let j = 0; j < count; j++) {
+        const ox = (sr(j*7+4) - 0.5) * topW * 0.70
+        const oz = (sr(j*7+5) - 0.5) * topD * 0.70
+        const w  = 0.65 + sr(j*7+6) * 1.1
+        const h  = 0.32 + sr(j*7+7) * 0.48
+        const d  = 0.55 + sr(j*7+8) * 0.95
+        hvacUnits.push({ x: bld.x + ox, y: roofY + h*0.5, z: bld.z + oz, w, h, d })
+      }
+    }
+
+    // Water towers — brick (3) and residential (4), 10–28m, ~62% chance
+    if ((bld.typeIdx === 3 || bld.typeIdx === 4) && bld.totalH > 10 && bld.totalH < 28 && sr(30) > 0.38) {
+      const ox = (sr(20) - 0.5) * topW * 0.45
+      const oz = (sr(21) - 0.5) * topD * 0.45
+      waterTanks.push({ x: bld.x + ox, y: roofY + 3.8, z: bld.z + oz })
+      waterCaps.push({  x: bld.x + ox, y: roofY + 6.2, z: bld.z + oz })
+      const lp = 0.86, legY = roofY + 1.5
+      waterLegs.push(
+        { x: bld.x + ox - lp, y: legY, z: bld.z + oz - lp },
+        { x: bld.x + ox + lp, y: legY, z: bld.z + oz - lp },
+        { x: bld.x + ox - lp, y: legY, z: bld.z + oz + lp },
+        { x: bld.x + ox + lp, y: legY, z: bld.z + oz + lp },
+      )
+    }
+
+    // Glass tower crown — stepped setback cap on tall glass towers
+    if (bld.typeIdx === 0 && bld.totalH > 22) {
+      crownLo.push({ x: bld.x, y: roofY + 1.0, z: bld.z, w: topW * 0.74, d: topD * 0.74 })
+      crownHi.push({ x: bld.x, y: roofY + 2.85, z: bld.z, w: topW * 0.46, d: topD * 0.46 })
+    }
+  })
+
+  return { elevShafts, hvacUnits, waterTanks, waterLegs, waterCaps, crownLo, crownHi, parapets }
+}
+
+function RooftopFeatures({ buildings }) {
+  const data = useMemo(() => buildRooftopData(buildings), [buildings])
+
+  const elevRef    = useRef()
+  const hvacRef    = useRef()
+  const tankRef    = useRef()
+  const legRef     = useRef()
+  const capRef     = useRef()
+  const crownLoRef = useRef()
+  const crownHiRef = useRef()
+  const parRef     = useRef()
+
+  useEffect(() => {
+    const dummy = new THREE.Object3D()
+    const color = new THREE.Color()
+
+    function applyInstances(meshRef, arr, scaleFn, colorFn) {
+      const mesh = meshRef.current
+      if (!mesh || arr.length === 0) return
+      arr.forEach((item, i) => {
+        dummy.position.set(item.x, item.y, item.z)
+        dummy.rotation.set(0, 0, 0)
+        scaleFn(item)
+        dummy.updateMatrix()
+        mesh.setMatrixAt(i, dummy.matrix)
+        if (colorFn) { color.set(colorFn(item)); mesh.setColorAt(i, color) }
+      })
+      mesh.instanceMatrix.needsUpdate = true
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
+    }
+
+    applyInstances(elevRef,    data.elevShafts, ()  => dummy.scale.set(2.0, 3.2, 2.0))
+    applyInstances(hvacRef,    data.hvacUnits,  u   => dummy.scale.set(u.w, u.h, u.d))
+    applyInstances(tankRef,    data.waterTanks, ()  => dummy.scale.set(1, 1, 1))
+    applyInstances(legRef,     data.waterLegs,  ()  => dummy.scale.set(1, 1, 1))
+    applyInstances(capRef,     data.waterCaps,  ()  => dummy.scale.set(1, 1, 1))
+    applyInstances(crownLoRef, data.crownLo,    c   => dummy.scale.set(c.w, 1.8, c.d))
+    applyInstances(crownHiRef, data.crownHi,    c   => dummy.scale.set(c.w, 1.8, c.d))
+    applyInstances(parRef,     data.parapets,   p   => dummy.scale.set(p.w, p.h, p.d),
+                   p => PARAPET_COLORS[p.typeIdx] ?? '#888888')
+  }, [data])
+
+  const safe = n => Math.max(n, 1)
+
+  return (
+    <group>
+      {/* Elevator shaft housings */}
+      <instancedMesh ref={elevRef} args={[null, null, safe(data.elevShafts.length)]}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial color="#888080" roughness={0.88} />
+      </instancedMesh>
+
+      {/* HVAC / mechanical units */}
+      <instancedMesh ref={hvacRef} args={[null, null, safe(data.hvacUnits.length)]}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial color="#9a9a9a" roughness={0.72} metalness={0.12} />
+      </instancedMesh>
+
+      {/* Water tower tanks */}
+      <instancedMesh ref={tankRef} args={[null, null, safe(data.waterTanks.length)]}>
+        <cylinderGeometry args={[1.1, 1.1, 2.8, 8]} />
+        <meshStandardMaterial color="#8a6a38" roughness={0.88} />
+      </instancedMesh>
+
+      {/* Water tower support legs */}
+      <instancedMesh ref={legRef} args={[null, null, safe(data.waterLegs.length)]}>
+        <cylinderGeometry args={[0.1, 0.1, 3.0, 4]} />
+        <meshStandardMaterial color="#606068" roughness={0.78} metalness={0.2} />
+      </instancedMesh>
+
+      {/* Water tower cone caps */}
+      <instancedMesh ref={capRef} args={[null, null, safe(data.waterCaps.length)]}>
+        <coneGeometry args={[1.22, 1.5, 8]} />
+        <meshStandardMaterial color="#6a5030" roughness={0.88} />
+      </instancedMesh>
+
+      {/* Glass tower crown — lower setback */}
+      {data.crownLo.length > 0 && (
+        <instancedMesh ref={crownLoRef} args={[null, null, data.crownLo.length]}>
+          <boxGeometry args={[1, 1, 1]} />
+          <meshStandardMaterial color="#6888aa" roughness={0.08} metalness={0.22} />
+        </instancedMesh>
+      )}
+
+      {/* Glass tower crown — upper setback */}
+      {data.crownHi.length > 0 && (
+        <instancedMesh ref={crownHiRef} args={[null, null, data.crownHi.length]}>
+          <boxGeometry args={[1, 1, 1]} />
+          <meshStandardMaterial color="#78aacc" roughness={0.06} metalness={0.28} />
+        </instancedMesh>
+      )}
+
+      {/* Roof parapets — low edge walls, color-matched to building type */}
+      <instancedMesh ref={parRef} args={[null, null, safe(data.parapets.length)]}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial roughness={0.85} metalness={0.04} />
+      </instancedMesh>
+    </group>
   )
 }
 
@@ -277,9 +454,10 @@ function Antennas({ buildings }) {
 // ── Main export ───────────────────────────────────────────────────────────────
 
 export default function CityGrid() {
-  const { isDaytime } = useScene()
+  const { isDaytime, setSelected } = useScene()
   const { dayMaps, nightMaps, nightData } = useMemo(() => buildTexturePools(), [])
   const buildings = useMemo(() => generateBuildings(), [])
+  const hitboxRef = useRef()
 
   // Staggered flicker timers so textures don't all update at once
   const flickerTimers = useRef(
@@ -320,6 +498,19 @@ export default function CityGrid() {
     }
   })
 
+  // Build hitbox matrices once (invisible click layer over each building)
+  useEffect(() => {
+    if (!hitboxRef.current) return
+    const dummy = new THREE.Object3D()
+    buildings.forEach((bld, i) => {
+      dummy.position.set(bld.x, bld.totalH / 2, bld.z)
+      dummy.scale.set(bld.baseW + 0.4, bld.totalH, bld.baseD + 0.4)
+      dummy.updateMatrix()
+      hitboxRef.current.setMatrixAt(i, dummy.matrix)
+    })
+    hitboxRef.current.instanceMatrix.needsUpdate = true
+  }, [buildings])
+
   // Group into [tier][typeIdx][variantIdx] buckets
   const buckets = useMemo(() => {
     const b = Array.from({ length: 3 }, () =>
@@ -359,6 +550,23 @@ export default function CityGrid() {
         )
       )}
       <Antennas buildings={buildings} />
+      <RooftopFeatures buildings={buildings} />
+
+      {/* Invisible hitbox layer — one instance per building for click detection */}
+      <instancedMesh
+        ref={hitboxRef}
+        args={[null, null, buildings.length]}
+        onClick={(e) => {
+          e.stopPropagation()
+          const bld = buildings[e.instanceId]
+          if (bld) setSelected({ type: 'building', data: bld })
+        }}
+        onPointerEnter={() => { document.body.style.cursor = 'pointer' }}
+        onPointerLeave={() => { document.body.style.cursor = 'auto' }}
+      >
+        <boxGeometry args={[1, 1, 1]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </instancedMesh>
     </group>
   )
 }

@@ -22,9 +22,21 @@ export function generateBuildings() {
 
       const baseW  = 3 + r  * 6
       const baseD  = 3 + r2 * 6
-      const totalH = 5 + r3 * 42
+
+      // Center-biased heights: downtown CBD is much taller than suburbs
+      const distFromCenter = Math.sqrt(gx * gx + gz * gz)
+      const heightBias     = Math.max(0.28, 1.0 - (distFromCenter / (gridSize * 1.5)) * 0.70)
+      const totalH         = Math.max(5, (5 + r3 * 48) * heightBias)
+
+      // Center-biased types: glass/corporate cluster downtown, brick/residential on outskirts
+      const centerFactor = Math.max(0, 1.0 - distFromCenter / (gridSize * 1.05))
+      const glassChance  = 0.13 + centerFactor * 0.34
       // 0=glass 1=concrete 2=corporate 3=brick 4=residential
-      const typeIdx    = r4 < 0.26 ? 0 : r4 < 0.44 ? 1 : r4 < 0.66 ? 2 : r4 < 0.83 ? 3 : 4
+      const typeIdx =
+        r4 < glassChance                    ? 0 :
+        r4 < glassChance + 0.20             ? 1 :
+        r4 < glassChance + 0.20 + 0.24      ? 2 :
+        r4 < glassChance + 0.20 + 0.24 + 0.21 ? 3 : 4
       const variantIdx = Math.floor(r5 * 5)
 
       const stepped = totalH > 18

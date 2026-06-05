@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
+import { useScene } from '../SceneContext'
 
 function createCloudTex() {
   const S = 256
@@ -42,9 +43,13 @@ const CLOUDS = Array.from({ length: 16 }, (_, i) => ({
 }))
 
 export default function MovingClouds() {
+  const { isDaytime } = useScene()
   const tex  = useMemo(() => createCloudTex(), [])
   const r0   = useRef()
   const r1   = useRef()
+
+  const cloudColor   = isDaytime ? '#ffffff' : '#8899aa'
+  const cloudOpacity = isDaytime ? 0.88      : 0.38
 
   useFrame((_, delta) => {
     if (r0.current) {
@@ -62,14 +67,14 @@ export default function MovingClouds() {
       <group ref={r0}>
         {CLOUDS.filter(c => c.layer === 0).map((c, i) => (
           <sprite key={i} position={[c.x, c.y, c.z]} scale={[c.sx, c.sy, 1]}>
-            <spriteMaterial map={tex} transparent opacity={0.88} depthWrite={false} color="#ffffff" />
+            <spriteMaterial map={tex} transparent opacity={cloudOpacity} depthWrite={false} color={cloudColor} />
           </sprite>
         ))}
       </group>
       <group ref={r1}>
         {CLOUDS.filter(c => c.layer === 1).map((c, i) => (
           <sprite key={i} position={[c.x, c.y, c.z]} scale={[c.sx * 1.2, c.sy * 1.1, 1]}>
-            <spriteMaterial map={tex} transparent opacity={0.72} depthWrite={false} color="#e8eeff" />
+            <spriteMaterial map={tex} transparent opacity={cloudOpacity * 0.82} depthWrite={false} color={isDaytime ? '#e8eeff' : '#6677aa'} />
           </sprite>
         ))}
       </group>

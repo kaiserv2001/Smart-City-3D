@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
+import { useScene } from '../SceneContext'
 
 const HALF = 112
 
@@ -122,6 +123,8 @@ function LightBar({ redRef, blueRef, barY }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function EmergencyVehicles() {
+  const { setSelected } = useScene()
+
   const ambRef  = useRef()
   const ambRed  = useRef()
   const ambBlue = useRef()
@@ -131,6 +134,9 @@ export default function EmergencyVehicles() {
   const polRed  = useRef()
   const polBlue = useRef()
   const polPos  = useRef(HALF)
+
+  function onEnter() { document.body.style.cursor = 'pointer' }
+  function onLeave() { document.body.style.cursor = 'auto' }
 
   useFrame((state, delta) => {
     const t = state.clock.elapsedTime
@@ -159,13 +165,19 @@ export default function EmergencyVehicles() {
   return (
     <group>
       {/* Ambulance — faces +x */}
-      <group ref={ambRef} rotation={[0, 0, 0]}>
+      <group ref={ambRef} rotation={[0, 0, 0]}
+        onClick={(e) => { e.stopPropagation(); setSelected({ type: 'emergency', data: { vehicleType: 'ambulance' } }) }}
+        onPointerEnter={onEnter} onPointerLeave={onLeave}
+      >
         <AmbulanceBody />
         <LightBar redRef={ambRed} blueRef={ambBlue} barY={1.62} />
       </group>
 
       {/* Police — faces -z */}
-      <group ref={polRef} rotation={[0, -Math.PI / 2, 0]}>
+      <group ref={polRef} rotation={[0, -Math.PI / 2, 0]}
+        onClick={(e) => { e.stopPropagation(); setSelected({ type: 'emergency', data: { vehicleType: 'police' } }) }}
+        onPointerEnter={onEnter} onPointerLeave={onLeave}
+      >
         <PoliceBody />
         <LightBar redRef={polRed} blueRef={polBlue} barY={0.85} />
       </group>

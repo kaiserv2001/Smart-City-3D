@@ -1,4 +1,4 @@
-import { Suspense, useState, useEffect } from 'react'
+import { Suspense, useState, useEffect, useCallback } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Sky, Stars, Grid } from '@react-three/drei'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
@@ -18,6 +18,7 @@ import MovingClouds from './components/MovingClouds'
 import Helicopter from './components/Helicopter'
 import Fountain from './components/Fountain'
 import LoadingScreen from './components/LoadingScreen'
+import InfoPanel from './components/InfoPanel'
 
 function ToggleButton({ isDaytime, onToggle }) {
   return (
@@ -123,19 +124,23 @@ function HUD({ isDaytime }) {
 
 export default function App() {
   const [ready, setReady]         = useState(false)
-  const [isDaytime, setIsDaytime] = useState(true)
+  const [isDaytime, setIsDaytime] = useState(false)
+  const [selected, setSelected]   = useState(null)
+  const clearSelected = useCallback(() => setSelected(null), [])
 
   return (
-    <SceneContext.Provider value={{ isDaytime }}>
+    <SceneContext.Provider value={{ isDaytime, selected, setSelected }}>
       {!ready && <LoadingScreen isDaytime={isDaytime} />}
 
       {ready && <ToggleButton isDaytime={isDaytime} onToggle={() => setIsDaytime(d => !d)} />}
       {ready && <HUD isDaytime={isDaytime} />}
+      {ready && <InfoPanel />}
 
       <Canvas
-        camera={{ position: [55, 35, 55], fov: 50 }}
+        camera={{ position: [0, 120, 15], fov: 72 }}
         gl={{ antialias: true }}
         shadows
+        onPointerMissed={clearSelected}
         onCreated={({ gl }) => {
           gl.toneMapping = THREE.ACESFilmicToneMapping
           gl.toneMappingExposure = isDaytime ? 1.0 : 1.4
@@ -186,10 +191,10 @@ export default function App() {
           <Billboards />
           <Fountain />
           <Helicopter />
-          {isDaytime && <MovingClouds />}
+          <MovingClouds />
 
           {/* Ground */}
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]} receiveShadow>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]} receiveShadow onClick={clearSelected}>
             <planeGeometry args={[500, 500]} />
             <meshStandardMaterial
               color={isDaytime ? '#7a7868' : '#000c1e'}
@@ -213,10 +218,11 @@ export default function App() {
 
         <OrbitControls
           enablePan enableZoom enableRotate
-          minDistance={12} maxDistance={200}
+          minDistance={20} maxDistance={350}
+          minPolarAngle={0}
           maxPolarAngle={Math.PI / 2.1}
-          autoRotate autoRotateSpeed={0.25}
-          target={[0, 6, 0]}
+          autoRotate autoRotateSpeed={0.3}
+          target={[0, 0, 0]}
         />
 
         <EffectComposer multisampling={0}>
